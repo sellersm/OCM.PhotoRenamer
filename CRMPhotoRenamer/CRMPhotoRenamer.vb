@@ -89,7 +89,7 @@ Public Class CRMPhotoRenamer
 			ChildrenProcessed = New Dictionary(Of String, Boolean)
 
 			'PhotoZipName = Path.GetFileNameWithoutExtension(e.FullPath) & " - Photos.zip"
-			CSVName = Path.GetFileName("C:\MoM\Loaded\HT-018 11-01-12.csv")
+			CSVName = Path.GetFileName("C:\MoM\Loaded\Photo Renamer 12-26-12.csv")
 
 			' Get Child List from CSV file
 			'Using fs As New FileStream(e.FullPath, FileMode.Open)
@@ -105,7 +105,7 @@ Public Class CRMPhotoRenamer
 
 			engine.ErrorManager.ErrorMode = ErrorMode.SaveAndContinue
 
-			Dim ChildIDList As ChildIDMap() = engine.ReadFile("C:\MoM\Loaded\HT-018 11-01-12.csv")
+			Dim ChildIDList As ChildIDMap() = engine.ReadFile("C:\MoM\Loaded\Photo Renamer 12-26-12.csv")
 
 			If engine.ErrorManager.ErrorCount > 0 Then
 				engine.ErrorManager.SaveErrors("Errors.txt")
@@ -130,10 +130,18 @@ Public Class CRMPhotoRenamer
 					PhotoZip.CaseSensitiveRetrieval = False
 
 				End If
-				PhotoZip.Extract(oneChildIDMap.TempChildID & ".jpg", ConfigurationManager.AppSettings("PhotoPath"))
 
-				Dim OldPhotoName As String = Path.Combine(ConfigurationManager.AppSettings("PhotoPath"), oneChildIDMap.TempChildID & ".jpg")
+				Dim FixDuplicateTempChildID As Boolean = True
+				Dim OldPhotoName As String = ""
 
+				If FixDuplicateTempChildID Then
+					PhotoZip.Extract(oneChildIDMap.TempChildID.Substring(0, oneChildIDMap.TempChildID.Length - 1) & ".jpg", ConfigurationManager.AppSettings("PhotoPath"))
+					OldPhotoName = Path.Combine(ConfigurationManager.AppSettings("PhotoPath"), oneChildIDMap.TempChildID.Substring(0, oneChildIDMap.TempChildID.Length - 1) & ".jpg")
+				Else
+					PhotoZip.Extract(oneChildIDMap.TempChildID & ".jpg", ConfigurationManager.AppSettings("PhotoPath"))
+					OldPhotoName = Path.Combine(ConfigurationManager.AppSettings("PhotoPath"), oneChildIDMap.TempChildID & ".jpg")
+				End If
+				
 				'If CompareFile(OldPhotoName, ConfigurationManager.AppSettings("NoPhotoJPG")) Then
 				'	'If CompareFile(OldPhotoName, "C:\MoM\ChildPhotos\No Photo\No Photo.JPG") Then
 				'	'If this photo is the same file (can have different file names) as the one used in HQ when the photo is unusable,
