@@ -88,8 +88,10 @@ Public Class CRMPhotoRenamer
 			PhotosProcessed = New Dictionary(Of String, Boolean)
 			ChildrenProcessed = New Dictionary(Of String, Boolean)
 
+			'*** Joe - Get full path from UI
+
 			'PhotoZipName = Path.GetFileNameWithoutExtension(e.FullPath) & " - Photos.zip"
-			CSVName = Path.GetFileName("C:\MoM\Loaded\Photo Renamer 12-26-12.csv")
+			CSVName = Path.GetFileName("C:\MoM\Loaded\Photo Renamer 12-31-12.csv")
 
 			' Get Child List from CSV file
 			'Using fs As New FileStream(e.FullPath, FileMode.Open)
@@ -105,7 +107,9 @@ Public Class CRMPhotoRenamer
 
 			engine.ErrorManager.ErrorMode = ErrorMode.SaveAndContinue
 
-			Dim ChildIDList As ChildIDMap() = engine.ReadFile("C:\MoM\Loaded\Photo Renamer 12-26-12.csv")
+			'*** Joe - Get full path from UI (same as above CSV Name)
+
+			Dim ChildIDList As ChildIDMap() = engine.ReadFile("C:\MoM\Loaded\Photo Renamer 12-31-12.csv")
 
 			If engine.ErrorManager.ErrorCount > 0 Then
 				engine.ErrorManager.SaveErrors("Errors.txt")
@@ -117,6 +121,8 @@ Public Class CRMPhotoRenamer
 						PhotoZip.Dispose()
 					End If
 					PhotoZipName = oneChildIDMap.ZipFileName & " - Photos.zip"
+
+					'*** Joe - Fix Log issue
 
 					'OneLogEntry = New LogEntry()
 					'OneLogEntry.EventId = 101
@@ -131,7 +137,7 @@ Public Class CRMPhotoRenamer
 
 				End If
 
-				Dim FixDuplicateTempChildID As Boolean = True
+				Dim FixDuplicateTempChildID As Boolean = False
 				Dim OldPhotoName As String = ""
 
 				If FixDuplicateTempChildID Then
@@ -141,7 +147,8 @@ Public Class CRMPhotoRenamer
 					PhotoZip.Extract(oneChildIDMap.TempChildID & ".jpg", ConfigurationManager.AppSettings("PhotoPath"))
 					OldPhotoName = Path.Combine(ConfigurationManager.AppSettings("PhotoPath"), oneChildIDMap.TempChildID & ".jpg")
 				End If
-				
+
+				'*** Joe - Re add this logic. Get No Photo jpg from Cary.
 				'If CompareFile(OldPhotoName, ConfigurationManager.AppSettings("NoPhotoJPG")) Then
 				'	'If CompareFile(OldPhotoName, "C:\MoM\ChildPhotos\No Photo\No Photo.JPG") Then
 				'	'If this photo is the same file (can have different file names) as the one used in HQ when the photo is unusable,
@@ -157,6 +164,8 @@ Public Class CRMPhotoRenamer
 
 			Next
 
+
+			'*** Joe - Not sure if we need this.
 
 			'' Initialize ChildrenProcessed dictionary as not found.
 			'For Each Child As Child In ChildList.Children
@@ -252,6 +261,8 @@ Public Class CRMPhotoRenamer
 			OneLogEntry.Categories.Add("Error")
 			Logger.Write(OneLogEntry)
 		End Try
+
+		'*** Joe - Fix Log issue
 
 		'OneLogEntry = New LogEntry()
 		'OneLogEntry.EventId = 101
