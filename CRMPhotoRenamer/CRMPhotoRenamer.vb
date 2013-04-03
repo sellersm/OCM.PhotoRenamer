@@ -369,6 +369,18 @@ End Class
 Public NotInheritable Class ChildIDMap
 
 
+    Private mBUSINESSPROCESSOUTPUT_PKID As String
+
+    Public Property BUSINESSPROCESSOUTPUT_PKID As String
+        Get
+            Return mBUSINESSPROCESSOUTPUT_PKID
+        End Get
+        Set(value As String)
+            mBUSINESSPROCESSOUTPUT_PKID = value
+        End Set
+    End Property
+
+
     Private mTempChildID As String
 
     Public Property TempChildID As String
@@ -404,16 +416,6 @@ Public NotInheritable Class ChildIDMap
         End Set
     End Property
 
-    Private mQUERYRECID As String
-
-    Public Property QUERYRECID As String
-        Get
-            Return mQUERYRECID
-        End Get
-        Set(value As String)
-            mQUERYRECID = value
-        End Set
-    End Property
 
 
 End Class
