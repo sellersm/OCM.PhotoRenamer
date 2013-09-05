@@ -8,6 +8,7 @@ Imports System.Xml
 Imports Ionic.Utils.Zip
 Imports Microsoft.Practices.EnterpriseLibrary.Logging
 Imports FileHelpers
+Imports Microsoft.VisualBasic.FileIO
 
 Public Class CRMPhotoRenamer
     <System.Runtime.InteropServices.DllImport("gdi32.dll")> _
@@ -15,6 +16,13 @@ Public Class CRMPhotoRenamer
     End Function
 
     Private _ProcessStatus As ProcessStatusType = ProcessStatusType.Stopped
+	Private WC As New Net.WebClient
+	Private imageList As List(Of FileInfo)
+	Private renamedPhotosDirectory As DirectoryInfo
+	Private totalFileCount As Integer = 0
+	Private fileCount As Integer = 0
+	Private targetRenamedPhotosDirectory As DirectoryInfo
+	Private filesTransferred As Integer = 0
 
     Private Property ProcessStatus() As ProcessStatusType
         Get
@@ -54,9 +62,17 @@ Public Class CRMPhotoRenamer
         Me.lblChildID.Text = ""
         Me.lblStatus.Text = ""
         Me.txtImportFileFolderName.SelectedText = ConfigurationManager.AppSettings("PhotoPath")
+		Me.txtSourceFileName.SelectedText = ConfigurationManager.AppSettings("SourceCSVFileLocation")
+
 
         SetButtons()
 
+		'Memphis 9/5/13
+		ProgressBar1.Value = 0
+		ProgressBar1.Visible = False
+		lblProgress.Visible = False
+		AddHandler WC.DownloadProgressChanged, AddressOf WC_ProgressChanged
+		AddHandler WC.DownloadFileCompleted, AddressOf WC_Complete
 
     End Sub
 
@@ -171,7 +187,7 @@ Public Class CRMPhotoRenamer
 
                     'Move the photo to the Successfully Renamed Folder
                     Try
-                        File.Move(OldPhotoName, NewPhotoName)
+						File.Move(OldPhotoName, NewPhotoName)
                     Catch ex As Exception
                         ErrorList.Add(String.Format("Moving the Photo failed for record {0} - {1}", FixedTempChildID, ex.Message))
                     End Try
@@ -213,17 +229,17 @@ Public Class CRMPhotoRenamer
                 Try
                     Dim ProcessedZipFilePath = String.Format("{0}", Path.Combine(ImportFileFolder, ProcessedZipFile))
                     Dim NewZipFileFolder As String = String.Format("{0}", Path.Combine(ConfigurationManager.AppSettings("PhotoPathProcessedZip"), ProcessedZipFile))
-                    File.Copy(ProcessedZipFilePath, NewZipFileFolder)
+					File.Copy(ProcessedZipFilePath, NewZipFileFolder, True)
 
                     'Custom error giving directions for a deletion error
                     Try
                         File.Delete(ProcessedZipFilePath)
                     Catch ex As Exception
-                        ErrorList.Add(String.Format("The file: {0} - Photos.zip was successfully moved to {1} but could not be deleted from {2}. It may be necessary to manually delete it.", ProcessedZipFile, ConfigurationManager.AppSettings("PhotoPathProcessedZip"), FullPath))
+						ErrorList.Add(String.Format("The file: {0} - Photos.zip was successfully copied to {1} but could not be deleted from {2}. It may be necessary to manually delete it.", ProcessedZipFile, ConfigurationManager.AppSettings("PhotoPathProcessedZip"), FullPath))
                     End Try
 
                 Catch ex As Exception
-                    ErrorList.Add(String.Format("Moving the Photo Zip File failed for record {0} - {1}", ProcessedZipFile, ex.Message))
+					ErrorList.Add(String.Format("Copying the Photo Zip File failed for record {0} - {1}", ProcessedZipFile, ex.Message))
                 End Try
             Next
 
@@ -232,14 +248,20 @@ Public Class CRMPhotoRenamer
                 For Each Item In ErrorList
                     rtbMessage.AppendText(Environment.NewLine & Item.ToString())
                 Next
-            End If
+			End If
 
-        End If
+			'Memphis 9/5/13: if all photos were renamed, then copy to the destination folder, which is in the .config file
+			If NumberOfInvalid = 0 Then
+				CopyRenamedPhotos()
+			End If
 
-        lblNumProcessedValue.Text = NumberOfPhotosChecked.ToString()
-        lblNumInvalid.Text = NumberOfInvalid.ToString()
 
-    End Sub
+		End If
+
+		lblNumProcessedValue.Text = NumberOfPhotosChecked.ToString()
+		lblNumInvalid.Text = NumberOfInvalid.ToString()
+
+	End Sub
 
 
     Private Sub SetButtons()
@@ -255,7 +277,7 @@ Public Class CRMPhotoRenamer
             If rtbMessage.TextLength > 0 Then
                 cmdCopyList.Visible = True
             Else
-                cmdCopyList.Visible = False
+				cmdCopyList.Visible = False
             End If
         End If
     End Sub
@@ -362,6 +384,63 @@ Public Class CRMPhotoRenamer
         Return BitConverter.ToString(HashA) = BitConverter.ToString(HashB)
 
     End Function
+
+	Private Sub CopyRenamedPhotos()
+		'get the two directory names from the congig file.
+		renamedPhotosDirectory = New DirectoryInfo(ConfigurationManager.AppSettings("PhotoPathRenamed"))
+		targetRenamedPhotosDirectory = New DirectoryInfo(ConfigurationManager.AppSettings("TargetRenamedPhotosDirectory"))
+
+		ProgressBar1.Style = ProgressBarStyle.Marquee
+		ProgressBar1.Visible = True
+
+		totalFileCount = renamedPhotosDirectory.GetFiles("*.jpg").Count()
+		lblProgress.Text = String.Format("Starting to copy {0} files...", totalFileCount)
+		lblProgress.Visible = True
+
+		Application.DoEvents()
+
+		Try
+			If targetRenamedPhotosDirectory.Exists Then
+				imageList = renamedPhotosDirectory.GetFiles("*.jpg").ToList()
+				WC.DownloadFileAsync(New Uri(Path.Combine(renamedPhotosDirectory.ToString(), imageList(0).Name)), Path.Combine(targetRenamedPhotosDirectory.ToString(), imageList(0).Name))
+			Else
+				MessageBox.Show(String.Format("Unable to locate the {0} folder", targetRenamedPhotosDirectory.FullName), "Photo Renamer", MessageBoxButtons.OK, MessageBoxIcon.Error)
+			End If
+		Catch ex As Exception
+			MessageBox.Show(ex.ToString(), "Photo Renamer", MessageBoxButtons.OK, MessageBoxIcon.Error)
+		End Try
+
+	End Sub
+
+
+	Sub WC_ProgressChanged(ByVal sender As Object, ByVal e As Net.DownloadProgressChangedEventArgs)
+		ProgressBar1.Value = e.ProgressPercentage
+	End Sub
+	Sub WC_Complete(ByVal sender As Object, ByVal e As System.ComponentModel.AsyncCompletedEventArgs)
+		filesTransferred = filesTransferred + 1
+		If e.Error Is Nothing Then
+			imageList.RemoveAt(0)
+			fileCount = imageList.Count
+
+			If imageList.Count > 0 Then
+				WC.DownloadFileAsync(New Uri(Path.Combine(renamedPhotosDirectory.ToString(), imageList(0).Name)), Path.Combine(targetRenamedPhotosDirectory.ToString(), imageList(0).Name))
+			End If
+
+			lblProgress.Text = String.Format("{0} of {1} files copied.", filesTransferred, totalFileCount)
+			'ProgressBar1.Value = (totalFileCount / fileCount) ' * 100
+
+			If fileCount = 0 Then
+				ProgressBar1.Style = ProgressBarStyle.Continuous
+				ProgressBar1.Value = 100
+				lblProgress.Text = String.Format("All {0} files copied!", totalFileCount)
+				MessageBox.Show("Finished copying renamed photo files! You may now close this application.", "Photo Renamer", MessageBoxButtons.OK, MessageBoxIcon.Information)
+			End If
+
+		Else
+			MsgBox(e.Error.ToString)
+		End If
+
+	End Sub
 
 End Class
 <IgnoreFirst(1), _
